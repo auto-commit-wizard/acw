@@ -2,7 +2,7 @@
 name = "acw"
 version = "0.0.1"
 description = ""
-authors = ["bossm0n5t3r <bossm0n5t3r@gmail.com>", "woozzaang <woozzaang@gmail.com>"]
+authors = ["bossm0n5t3r <bossm0n5t3r@gmail.com>", "Woozzang <woozzaang@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
