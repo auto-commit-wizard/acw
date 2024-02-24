@@ -17,7 +17,7 @@ poetry install
 
 ## TO-DO
 
-- [ ] `acw init`
+- [ ] `acw config`
   - [ ] OpenAI API Key 저장
   - [ ] 아래 값은 default 로 설정 후 custom 처리
     - [ ] Prompt message
@@ -27,8 +27,9 @@ poetry install
     - [ ] OpenAI Max Tokens
     - [ ] OpenAI Frequency Penalty
     - [ ] OpenAI Presence Penalty
-- [ ] 명령어 compile (like Makefile)
-- [ ] Install script
+- [x] 명령어 compile (like Makefile)
+- [x] Install script
+- [ ] Uninstall script
 - [ ] `acw` (or `acw commit`)
   - [ ] Untracted files, Modified files 을 찾고
   - [ ] 커밋할 파일을 선택하게 한 뒤
