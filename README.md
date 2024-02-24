@@ -17,7 +17,7 @@ poetry install
 
 ## TO-DO
 
-- [ ] `acw init`
+- [ ] `acw config`
   - [ ] OpenAI API Key 저장
   - [ ] 아래 값은 default 로 설정 후 custom 처리
     - [ ] Prompt message
