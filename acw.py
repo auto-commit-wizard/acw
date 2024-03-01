@@ -9,6 +9,18 @@ class ACW:
         process the subcommands provided as arguments,
         and call the corresponding method based on the input subcommand.
         """
+
+        self.commit_message_language = "English"
+        self.open_ai_prompt_message = "You will be provided with a piece of code, and your task is to generate a commit message for it in a conventional commit message format. Commit Subject and Body are up to 70 charactors each lines. Commit Subject and Body should be in {0}.".format(
+            self.commit_message_language
+        )
+        self.open_ai_model = "gpt-3.5-turbo"
+        self.open_ai_temperature = 0
+        self.open_ai_top_p = 0.95
+        self.open_ai_max_tokens = 500
+        self.open_ai_frequency_penalty = 0
+        self.open_ai_presence_penalty = 0
+
         command_map = {
             "config": self.config,
             "commit": self.commit,
