@@ -17,16 +17,16 @@ poetry install
 
 ## TO-DO
 
-- [ ] `acw config`
-  - [ ] OpenAI API Key 저장
-  - [ ] 아래 값은 default 로 설정 후 custom 처리
-    - [ ] Prompt message
-    - [ ] commit message language (default: English, optional: Korean)
-    - [ ] OpenAI Model
-    - [ ] OpenAI Temperature
-    - [ ] OpenAI Max Tokens
-    - [ ] OpenAI Frequency Penalty
-    - [ ] OpenAI Presence Penalty
+- [x] `acw config`
+  - [x] OpenAI API Key 저장
+  - [x] 아래 값은 default 로 설정 후 custom 처리
+    - [x] Prompt message
+    - [x] commit message language (default: English, optional: Korean)
+    - [x] OpenAI Model
+    - [x] OpenAI Temperature
+    - [x] OpenAI Max Tokens
+    - [x] OpenAI Frequency Penalty
+    - [x] OpenAI Presence Penalty
 - [x] 명령어 compile (like Makefile)
 - [x] Install script
 - [ ] Uninstall script
