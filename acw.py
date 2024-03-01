@@ -55,9 +55,7 @@ class ACW:
             return
 
     def commit(self):
-        exist = self.check_config()
-        if not exist:
-            self.config()
+        self.config()
         print("Commiting...")
 
 
