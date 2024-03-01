@@ -23,7 +23,7 @@ class ACW:
         self.open_ai_presence_penalty = 0
 
         command_map = {
-            "config": self.config,
+            "config": self.config(edit_config=True),
             "commit": self.commit,
         }
         subcommands = sys.argv[1:]
@@ -52,7 +52,27 @@ class ACW:
         )
         if exist:
             if edit_config:
-                print("Edit config...")
+                current_config_map = {}
+                with open(acw_config_path, "rb") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line:
+                            k, v = line.split(b"=")
+                            current_config_map[k.decode("utf-8")] = v.decode("utf-8")
+                for k, v in current_config_map.items():
+                    print('Current value of "{0}": "{1}"'.format(k, v))
+                    new_value = input(
+                        "Enter a new value or press Enter to keep the current value: "
+                    )
+                    if new_value:
+                        current_config_map[k] = new_value
+                    print()
+                with open(acw_config_path, "wb") as f:
+                    for k, v in current_config_map.items():
+                        f.write(k.encode("utf-8"))
+                        f.write(b"=")
+                        f.write(str(v).encode("utf-8"))
+                        f.write(b"\n")
             return
         else:
             open_ai_api_key = input("Enter your OpenAI API key: ")
