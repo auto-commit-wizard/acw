@@ -4,7 +4,7 @@ import sys
 
 
 class ACW:
-    def __init__(self) -> None:
+    def __init__(self, check_subcommands=True) -> None:
         """
         Initialize the command_map with the appropriate method references,
         process the subcommands provided as arguments,
@@ -22,25 +22,26 @@ class ACW:
         self.open_ai_frequency_penalty = 0
         self.open_ai_presence_penalty = 0
 
-        command_map = {
-            "config": self.config(edit_config=True),
-            "commit": self.commit,
-        }
-        subcommands = sys.argv[1:]
-        if len(subcommands) > 1:
-            # subcommand 를 2개 이상 입력한 경우
-            print("Too many arguments")
-            sys.exit(1)
-        elif len(subcommands) == 1:
-            # subcommand 를 1개만 입력한 경우
-            if subcommands[0] not in command_map:
-                # 모르는 subcommand 는 무시하도록 처리
-                print("Unknown command")
+        if check_subcommands:
+            command_map = {
+                "config": self.config(edit_config=True),
+                "commit": self.commit,
+            }
+            subcommands = sys.argv[1:]
+            if len(subcommands) > 1:
+                # subcommand 를 2개 이상 입력한 경우
+                print("Too many arguments")
                 sys.exit(1)
-            command_map[subcommands[0]]()
-        else:
-            # 'acw' 만 입력한 경우
-            self.commit()
+            elif len(subcommands) == 1:
+                # subcommand 를 1개만 입력한 경우
+                if subcommands[0] not in command_map:
+                    # 모르는 subcommand 는 무시하도록 처리
+                    print("Unknown command")
+                    sys.exit(1)
+                command_map[subcommands[0]]()
+            else:
+                # 'acw' 만 입력한 경우
+                self.commit()
 
     def config(self, edit_config=False):
         home_directory = os.path.expanduser("~")
