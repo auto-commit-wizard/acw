@@ -4,13 +4,16 @@ import sys
 
 
 class ACW:
-    def __init__(self, check_subcommands=True) -> None:
+    def __init__(self, check_subcommands=True, home_directory=None) -> None:
         """
         Initialize the command_map with the appropriate method references,
         process the subcommands provided as arguments,
         and call the corresponding method based on the input subcommand.
         """
 
+        self.home_directory = os.path.expanduser("~")
+        if home_directory:
+            self.home_directory = home_directory
         self.commit_message_language = "English"
         self.open_ai_prompt_message = "You will be provided with a piece of code, and your task is to generate a commit message for it in a conventional commit message format. Commit Subject and Body are up to 70 charactors each lines. Commit Subject and Body should be in {0}.".format(
             self.commit_message_language
@@ -44,8 +47,7 @@ class ACW:
                 self.commit()
 
     def config(self, edit_config=False):
-        home_directory = os.path.expanduser("~")
-        acw_config_path = home_directory + "/.acw"
+        acw_config_path = self.home_directory + "/.acw"
         exist = (
             os.path.exists(acw_config_path)
             and os.path.isfile(acw_config_path)
