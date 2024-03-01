@@ -1,3 +1,4 @@
+import os
 import signal
 import sys
 
@@ -41,18 +42,37 @@ class ACW:
             # 'acw' 만 입력한 경우
             self.commit()
 
-    def check_config(self):
-        print("Checking config...")
-        return False
-
-    def config(self):
-        exist = self.check_config()
+    def config(self, edit_config=False):
+        home_directory = os.path.expanduser("~")
+        acw_config_path = home_directory + "/.acw"
+        exist = (
+            os.path.exists(acw_config_path)
+            and os.path.isfile(acw_config_path)
+            and os.access(acw_config_path, os.R_OK)
+        )
         if exist:
-            print("Edit config...")
+            if edit_config:
+                print("Edit config...")
             return
         else:
-            print("Configuring...")
-            return
+            open_ai_api_key = input("Enter your OpenAI API key: ")
+            config_map = {
+                "open_ai_api_key": open_ai_api_key,
+                "commit_message_language": self.commit_message_language,
+                "open_ai_prompt_message": self.open_ai_prompt_message,
+                "open_ai_model": self.open_ai_model,
+                "open_ai_temperature": self.open_ai_temperature,
+                "open_ai_top_p": self.open_ai_top_p,
+                "open_ai_max_tokens": self.open_ai_max_tokens,
+                "open_ai_frequency_penalty": self.open_ai_frequency_penalty,
+                "open_ai_presence_penalty": self.open_ai_presence_penalty,
+            }
+            with open(acw_config_path, "wb") as f:
+                for k, v in config_map.items():
+                    f.write(k.encode("utf-8"))
+                    f.write(b"=")
+                    f.write(str(v).encode("utf-8"))
+                    f.write(b"\n")
 
     def commit(self):
         self.config()
