@@ -1,6 +1,19 @@
 import os
 import signal
 import sys
+from enum import Enum
+
+
+class Constants(Enum):
+    COMMIT_MESSAGE_LANGUAGE = "COMMIT_MESSAGE_LANGUAGE"
+    OPEN_AI_API_KEY = "OPEN_AI_API_KEY"
+    OPEN_AI_PROMPT_MESSAGE = "OPEN_AI_PROMPT_MESSAGE"
+    OPEN_AI_MODEL = "OPEN_AI_MODEL"
+    OPEN_AI_TEMPERATURE = "OPEN_AI_TEMPERATURE"
+    OPEN_AI_TOP_P = "OPEN_AI_TOP_P"
+    OPEN_AI_MAX_TOKENS = "OPEN_AI_MAX_TOKENS"
+    OPEN_AI_FREQUENCY_PENALTY = "OPEN_AI_FREQUENCY_PENALTY"
+    OPEN_AI_PRESENCE_PENALTY = "OPEN_AI_PRESENCE_PENALTY"
 
 
 class ACW:
@@ -26,22 +39,22 @@ class ACW:
         self.open_ai_presence_penalty = 0
 
         if check_subcommands:
-            command_map = {
-                "config": self.config(edit_config=True),
-                "commit": self.commit,
-            }
             subcommands = sys.argv[1:]
+
             if len(subcommands) > 1:
                 # subcommand 를 2개 이상 입력한 경우
                 print("Too many arguments")
                 sys.exit(1)
             elif len(subcommands) == 1:
                 # subcommand 를 1개만 입력한 경우
-                if subcommands[0] not in command_map:
+                if subcommands[0] == "config":
+                    self.config(edit_config=True)
+                elif subcommands[0] == "commit":
+                    self.commit()
+                else:
                     # 모르는 subcommand 는 무시하도록 처리
                     print("Unknown command")
                     sys.exit(1)
-                command_map[subcommands[0]]()
             else:
                 # 'acw' 만 입력한 경우
                 self.commit()
@@ -52,6 +65,7 @@ class ACW:
             os.path.exists(acw_config_path)
             and os.path.isfile(acw_config_path)
             and os.access(acw_config_path, os.R_OK)
+            and os.path.getsize(acw_config_path) > 0
         )
         if exist:
             if edit_config:
@@ -80,15 +94,15 @@ class ACW:
         else:
             open_ai_api_key = input("Enter your OpenAI API key: ")
             config_map = {
-                "open_ai_api_key": open_ai_api_key,
-                "commit_message_language": self.commit_message_language,
-                "open_ai_prompt_message": self.open_ai_prompt_message,
-                "open_ai_model": self.open_ai_model,
-                "open_ai_temperature": self.open_ai_temperature,
-                "open_ai_top_p": self.open_ai_top_p,
-                "open_ai_max_tokens": self.open_ai_max_tokens,
-                "open_ai_frequency_penalty": self.open_ai_frequency_penalty,
-                "open_ai_presence_penalty": self.open_ai_presence_penalty,
+                Constants.OPEN_AI_API_KEY.name: open_ai_api_key,
+                Constants.COMMIT_MESSAGE_LANGUAGE.name: self.commit_message_language,
+                Constants.OPEN_AI_PROMPT_MESSAGE.name: self.open_ai_prompt_message,
+                Constants.OPEN_AI_MODEL.name: self.open_ai_model,
+                Constants.OPEN_AI_TEMPERATURE.name: self.open_ai_temperature,
+                Constants.OPEN_AI_TOP_P.name: self.open_ai_top_p,
+                Constants.OPEN_AI_MAX_TOKENS.name: self.open_ai_max_tokens,
+                Constants.OPEN_AI_FREQUENCY_PENALTY.name: self.open_ai_frequency_penalty,
+                Constants.OPEN_AI_PRESENCE_PENALTY.name: self.open_ai_presence_penalty,
             }
             with open(acw_config_path, "wb") as f:
                 for k, v in config_map.items():
