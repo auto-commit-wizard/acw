@@ -8,6 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.11, <3.13"
 pyinstaller = "^6.4.0"
+inquirer = "^3.2.4"
 
 
 [build-system]
