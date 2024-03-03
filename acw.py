@@ -2,7 +2,10 @@ import os
 import signal
 import sys
 from enum import Enum
-
+import subprocess
+import inquirer
+from rich import print
+from openai import OpenAI
 
 class Constants(Enum):
     COMMIT_MESSAGE_LANGUAGE = "COMMIT_MESSAGE_LANGUAGE"
@@ -23,7 +26,7 @@ class ACW:
         process the subcommands provided as arguments,
         and call the corresponding method based on the input subcommand.
         """
-
+        self.text_color = "light_slate_blue"
         self.home_directory = os.path.expanduser("~")
         if home_directory:
             self.home_directory = home_directory
@@ -113,11 +116,282 @@ class ACW:
 
     def commit(self):
         self.config()
-        print("Commiting...")
 
+        acw_config_path = self.home_directory + "/.acw"
+        try:
+            with open(acw_config_path, 'r') as file:
+                file_contents = file.read()
+                api_key = file_contents.split("\n")[0].split("=")[1]
+        except FileNotFoundError:
+            print(f"The file {acw_config_path} was not found.")
+
+        self.client = OpenAI(
+                    # This is the default and can be omitted
+                    api_key=api_key,
+                )
+
+        selected_unstaged_file_name_list = self.get_selected_unstaged_file_name_list()
+        selected_modified_file_name_list = self.get_selected_modified_file_name_list()
+
+        diff_lines = self.read_file_diff(
+            selected_unstaged_file_name_list, False
+        ) + self.read_file_diff(selected_modified_file_name_list, True)
+
+        self.validate_diff_lines(diff_lines)
+
+        parsed_diff_line = self.parse_diff_lines_to_single_string(diff_lines)
+
+        generated_commit_message = self.generate_commit_message_using_prompt(
+            parsed_diff_line
+        )
+
+        final_commit_message = self.confirm_commit_message(
+            generated_commit_message, diff_lines
+        )
+
+        self.git_add_files(
+            selected_unstaged_file_name_list + selected_modified_file_name_list
+        )
+        
+        self.git_commit(final_commit_message)
+        self.git_push_if_needed()
+
+    def get_selected_unstaged_file_name_list(self) -> list:
+        unstaged_file_name_list = self.get_all_unstaged_file_name_list()
+
+        if unstaged_file_name_list:
+            return self.select_checkbox(
+                "Select from [Untracked files]", unstaged_file_name_list
+            )
+        else:
+            return []
+
+    def get_selected_modified_file_name_list(self) -> list:
+        modified_file_name_list = self.get_all_modified_file_name_list()
+
+        if modified_file_name_list:
+            return self.select_checkbox(
+                "Select from [Changes not staged for commit]", modified_file_name_list
+            )
+        else:
+            return []
+
+    def get_all_unstaged_file_name_list(self) -> list:
+        """
+        Retrieve a list of all unstaged file names in the current git repository.
+        """
+        try:
+            output = subprocess.check_output(
+                ["git", "ls-files", "--others", "--exclude-standard"],
+                stderr=subprocess.STDOUT,  # Capture stderr in case of errors
+                text=True  # Automatically decode output to string
+            ).strip()  # Remove leading/trailing whitespace characters
+            if output:  # If there's any output, split it into a list
+                return output.split('\n')
+            else:
+                return []  # Return an empty list if there's no output
+        except subprocess.CalledProcessError as e:
+            # Handle errors (e.g., not a git repo, git command not found)
+            print(f"Error executing git command: {e.output}")
+            return []
+
+    def get_all_modified_file_name_list(self) -> list:
+        """
+        Retrieves a list of all file names that have been modified in the current
+        Git working directory but not yet staged for commit.
+        """
+        try:
+            output = subprocess.check_output(
+                ["git", "diff", "--name-only"],
+                stderr=subprocess.STDOUT,  # Capture stderr in case of errors
+                text=True  # Automatically decode output to string
+            ).strip()  # Remove leading/trailing whitespace characters
+            if output:  # If there's any output, split it into a list
+                return output.split('\n')
+            else:
+                return []  # Return an empty list if there's no output
+        except subprocess.CalledProcessError as e:
+            # Handle errors (e.g., not a git repo, git command not found)
+            print(f"Error executing git command: {e.output}")
+            return []
+    
+    def select_checkbox(self, message, file_name_list):
+        """
+        Prompt the user to select files from a list using a checkbox interface. Returns a list of selected file names.
+        """
+        if len(file_name_list) == 0:
+            return []
+        key = "selected_files"
+        questions = [
+            inquirer.Checkbox(
+                key, message=message, choices=file_name_list, carousel=True
+            ),
+        ]
+        answers = inquirer.prompt(questions)
+        return answers[key]
+
+    def read_file_diff(self, selected_files, is_diff):
+        """
+        Reads and returns the contents of selected files or their diffs if specified.
+        """
+        result = []
+        if is_diff:
+            for filename in selected_files:
+                try:
+                    output = subprocess.check_output(
+                        ["git", "diff", "--", filename],
+                        stderr=subprocess.STDOUT,  # Capture stderr in case of errors
+                        text=True  # Automatically decode output to string
+                    ).strip()  # Remove leading/trailing whitespace characters
+                    if output:  # If there's any output, split it into a list
+                        result += output.split('\n')[:-1]
+                    else:
+                        continue
+                except subprocess.CalledProcessError as e:
+                    # Handle errors (e.g., not a git repo, git command not found)
+                    print(f"Error executing git command: {e.output}")
+                    return
+        else:
+            for filename in selected_files:
+                with open(filename, "r") as file:
+                    raw_data = file.read()
+                    result += [raw_data]
+        return result
+    
+    def validate_diff_lines(self, diff_lines):
+        try:
+            if len(diff_lines) == 0:
+                print("[bold red]No files have been changed.[/bold red]")
+                raise Exception("diff lines is empty.")
+        except Exception:
+            sys.exit(0)
+
+    def parse_diff_lines_to_single_string(self, diff_lines):
+        return "\n".join(diff_lines)
+    
+    def generate_commit_message_using_prompt(self, parsed_diff_line):
+        """
+        Automatically generate and suggest commit messages through prompt engineering        
+        """
+        completion = self.client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": """
+                    You will be provided with a piece of code,
+                    and your task is to generate commit message for it in a conventional commit message.
+                    Commit Subject and Body are up to  70 charactors.
+                    """,
+                },
+                {"role": "user", "content": parsed_diff_line},
+            ],
+            model=self.open_ai_model,
+            frequency_penalty=self.open_ai_frequency_penalty,
+            max_tokens=self.open_ai_max_tokens,
+            temperature=self.open_ai_temperature,
+            top_p=self.open_ai_top_p,
+            presence_penalty=self.open_ai_presence_penalty,
+            stop=None,
+        )
+        return completion.choices[0].message.content
+    
+    def confirm_commit_message(self, genenrated_commit_message, diff_lines):
+        """
+        Prompts the user to confirm or modify the generated commit message.
+        """
+        print(
+            "[bold " + self.text_color + "]Generated Commit Message" + "[/"
+            "bold " + self.text_color + "] :point_down::point_down:"
+        )
+        print()
+        self.print_msg_box(genenrated_commit_message)
+        print()
+        key = "cofirm"
+        questions = [
+            inquirer.List(
+                key,
+                message="Do you like the generated commit message?",
+                choices=["Yes, please commit with this message.", "No, I want to modify it."],
+            ),
+        ]
+        answers = inquirer.prompt(questions)
+        result = genenrated_commit_message
+        if answers[key] == "No, I want to modify it.":
+            print("Please enter a commit message.")
+            lines = []
+            while True:
+                line = input()
+                if line:
+                    lines.append(line)
+                else:
+                    break
+            text = "\n".join(lines)
+            result = text
+        return result
+    
+    def print_msg_box(self, msg, indent=1, width=None, title=None):
+        """
+        Draw a message box with the given commit message.
+        """
+        lines = msg.split("\n")
+        space = " " * indent
+        if not width:
+            width = max(map(len, lines))
+        box = f'╔{"═" * (width + indent * 2)}╗\n'  # upper_border
+        if title:
+            box += f"║{space}{title:<{width}}{space}║\n"  # title
+            box += f'║{space}{"-" * len(title):<{width}}{space}║\n'  # underscore
+        box += "".join([f"║{space}{line:<{width}}{space}║\n" for line in lines])
+        box += f'╚{"═" * (width + indent * 2)}╝'  # lower_border
+        print(box)
+
+    def git_add_files(self, file_name_list):
+        for filename in file_name_list:
+            subprocess.run(["git", "add", filename], stdout=subprocess.PIPE)
+
+    def git_commit(self, final_commit_message):
+        subprocess.run(
+            ["git", "commit", "-m", final_commit_message],
+            stdout=subprocess.PIPE,
+        )
+
+    def git_push_if_needed(self):
+        """
+        Prompts the user to decide whether to proceed with pushing the current branch to the remote repository.
+        """
+        key = "cofirm"
+        questions = [
+            inquirer.List(
+                key,
+                message="Shall we continue with the push?",
+                choices=["Yes, push it.", "No, Later."],
+            ),
+        ]
+
+        answers = inquirer.prompt(questions)
+        if answers[key] == "Yes, push it.":
+            current_branch_name = (
+                subprocess.run(
+                    ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                    stdout=subprocess.PIPE,
+                )
+                .stdout.decode("utf-8")
+                .split("\n")[:-1]
+            )[0]
+            subprocess.run(
+                [
+                    "git",
+                    "push",
+                    "--set-upstream",
+                    "origin",
+                    current_branch_name,
+                ],
+                stdout=subprocess.PIPE,
+            )
+    
 
 if __name__ == "__main__":
-    try:
+    # try:
         ACW()
-    except:
-        pass
+    # except:
+        # pass

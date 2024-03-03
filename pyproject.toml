@@ -10,6 +10,7 @@ python = ">=3.11, <3.13"
 pyinstaller = "^6.4.0"
 inquirer = "^3.2.4"
 rich = "^13.7.1"
+openai = "^1.13.3"
 
 
 [build-system]
