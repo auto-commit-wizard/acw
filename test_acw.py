@@ -3,7 +3,7 @@ import unittest.mock
 from unittest import TestCase
 from unittest.mock import mock_open, patch
 
-from acw import ACW
+from acw import ACW, Constants
 
 
 class ACWTest(TestCase):
@@ -38,13 +38,14 @@ class ACWTest(TestCase):
         with open(self.get_mock_file_path(), "r") as f:
             config_map = self.parse_config_file_to_dict(f.read())
 
-        self.assertEqual(dummy_open_ai_api_key, config_map[open_ai_api_key])
+        self.assertEqual(
+            dummy_open_ai_api_key, config_map[Constants.OPEN_AI_API_KEY.name]
+        )
 
     def test_should_update_config_when_edit_config_is_true(self):
         # given
         home_directory = self.get_mock_home_directory()
         acw = ACW(check_subcommands=False, home_directory=home_directory)
-        open_ai_api_key = "open_ai_api_key"
         dummy_open_ai_api_key = "dummy_open_ai_api_key"
         with patch("builtins.input", return_value=dummy_open_ai_api_key):
             acw.config()
@@ -52,7 +53,9 @@ class ACWTest(TestCase):
         with open(self.get_mock_file_path(), "r") as f:
             config_map = self.parse_config_file_to_dict(f.read())
 
-        self.assertEqual(dummy_open_ai_api_key, config_map[open_ai_api_key])
+        self.assertEqual(
+            dummy_open_ai_api_key, config_map[Constants.OPEN_AI_API_KEY.name]
+        )
         updated_dummy_open_ai_api_key = "updated_dummy_open_ai_api_key"
 
         # when
@@ -74,8 +77,9 @@ class ACWTest(TestCase):
         with open(self.get_mock_file_path(), "r") as f:
             updated_config_map = self.parse_config_file_to_dict(f.read())
         self.assertEqual(
-            updated_dummy_open_ai_api_key, updated_config_map[open_ai_api_key]
+            updated_dummy_open_ai_api_key,
+            updated_config_map[Constants.OPEN_AI_API_KEY.name],
         )
-        config_map.pop(open_ai_api_key)
-        updated_config_map.pop(open_ai_api_key)
+        config_map.pop(Constants.OPEN_AI_API_KEY.name)
+        updated_config_map.pop(Constants.OPEN_AI_API_KEY.name)
         self.assertEqual(config_map, updated_config_map)
