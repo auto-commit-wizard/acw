@@ -8,6 +8,7 @@ import inquirer
 from openai import OpenAI
 from rich import print
 
+
 class Constants(Enum):
     COMMIT_MESSAGE_LANGUAGE = "COMMIT_MESSAGE_LANGUAGE"
     OPEN_AI_API_KEY = "OPEN_AI_API_KEY"
@@ -19,9 +20,11 @@ class Constants(Enum):
     OPEN_AI_FREQUENCY_PENALTY = "OPEN_AI_FREQUENCY_PENALTY"
     OPEN_AI_PRESENCE_PENALTY = "OPEN_AI_PRESENCE_PENALTY"
 
+
 class GitCommand(Enum):
     UNSTAGED_FILES = ["git", "ls-files", "--others", "--exclude-standard"]
     MODIFIED_FILES = ["git", "diff", "--name-only"]
+
 
 class ACW:
     def __init__(self, check_subcommands=True, home_directory=None) -> None:
@@ -127,9 +130,7 @@ class ACW:
         except FileNotFoundError:
             print(f"The file {self.acw_config_path} was not found.")
 
-        self.client = OpenAI(
-            api_key=api_key
-        )
+        self.client = OpenAI(api_key=api_key)
 
         selected_unstaged_file_name_list = self.get_selected_unstaged_file_name_list()
         selected_modified_file_name_list = self.get_selected_modified_file_name_list()
@@ -153,12 +154,14 @@ class ACW:
         self.git_add_files(
             selected_unstaged_file_name_list + selected_modified_file_name_list
         )
-        
+
         self.git_commit(final_commit_message)
         self.git_push_if_needed()
 
     def get_selected_unstaged_file_name_list(self) -> list:
-        unstaged_file_name_list = self.get_file_list_from_git_command(git_command=GitCommand.UNSTAGED_FILES)
+        unstaged_file_name_list = self.get_file_list_from_git_command(
+            git_command=GitCommand.UNSTAGED_FILES
+        )
 
         if unstaged_file_name_list:
             return self.select_checkbox(
@@ -168,7 +171,9 @@ class ACW:
             return []
 
     def get_selected_modified_file_name_list(self) -> list:
-        modified_file_name_list = self.get_file_list_from_git_command(git_command=GitCommand.MODIFIED_FILES)
+        modified_file_name_list = self.get_file_list_from_git_command(
+            git_command=GitCommand.MODIFIED_FILES
+        )
 
         if modified_file_name_list:
             return self.select_checkbox(
@@ -176,7 +181,7 @@ class ACW:
             )
         else:
             return []
-        
+
     def get_file_list_from_git_command(self, git_command: GitCommand):
         """
         Executes a Git command based on the GitCommand enum, returning a list of file names or an empty list on error.
@@ -196,7 +201,7 @@ class ACW:
             # Handle errors (e.g., not a git repo, git command not found)
             print(f"Error executing git command: {e.output}")
             return []
-    
+
     def select_checkbox(self, message, file_name_list):
         """
         Prompt the user to select files from a list using a checkbox interface. Returns a list of selected file names.
@@ -223,10 +228,10 @@ class ACW:
                     output = subprocess.check_output(
                         ["git", "diff", "--", filename],
                         stderr=subprocess.STDOUT,  # Capture stderr in case of errors
-                        text=True  # Automatically decode output to string
+                        text=True,  # Automatically decode output to string
                     ).strip()  # Remove leading/trailing whitespace characters
                     if output:  # If there's any output, split it into a list
-                        result += output.split('\n')[:-1]
+                        result += output.split("\n")[:-1]
                     else:
                         continue
                 except subprocess.CalledProcessError as e:
@@ -239,7 +244,7 @@ class ACW:
                     raw_data = file.read()
                     result += [raw_data]
         return result
-    
+
     def validate_diff_lines(self, diff_lines):
         try:
             if len(diff_lines) == 0:
@@ -250,10 +255,10 @@ class ACW:
 
     def parse_diff_lines_to_single_string(self, diff_lines):
         return "\n".join(diff_lines)
-    
+
     def generate_commit_message_using_prompt(self, parsed_diff_line):
         """
-        Automatically generate and suggest commit messages through prompt engineering        
+        Automatically generate and suggest commit messages through prompt engineering
         """
         completion = self.client.chat.completions.create(
             messages=[
@@ -272,7 +277,7 @@ class ACW:
             stop=None,
         )
         return completion.choices[0].message.content
-    
+
     def confirm_commit_message(self, genenrated_commit_message, diff_lines):
         """
         Prompts the user to confirm or modify the generated commit message.
@@ -289,7 +294,10 @@ class ACW:
             inquirer.List(
                 key,
                 message="Do you like the generated commit message?",
-                choices=["Yes, please commit with this message.", "No, I want to modify it."],
+                choices=[
+                    "Yes, please commit with this message.",
+                    "No, I want to modify it.",
+                ],
             ),
         ]
         answers = inquirer.prompt(questions)
@@ -306,7 +314,7 @@ class ACW:
             text = "\n".join(lines)
             result = text
         return result
-    
+
     def print_msg_box(self, msg, indent=1, width=None, title=None):
         """
         Draw a message box with the given commit message.
@@ -366,7 +374,7 @@ class ACW:
                 ],
                 stdout=subprocess.PIPE,
             )
-    
+
 
 if __name__ == "__main__":
     try:
