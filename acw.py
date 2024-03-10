@@ -1,11 +1,12 @@
 import os
 import signal
-import sys
-from enum import Enum
 import subprocess
+import sys
+from enum import Enum, auto
+
 import inquirer
-from rich import print
 from openai import OpenAI
+from rich import print
 
 class Constants(Enum):
     COMMIT_MESSAGE_LANGUAGE = "COMMIT_MESSAGE_LANGUAGE"
@@ -18,6 +19,9 @@ class Constants(Enum):
     OPEN_AI_FREQUENCY_PENALTY = "OPEN_AI_FREQUENCY_PENALTY"
     OPEN_AI_PRESENCE_PENALTY = "OPEN_AI_PRESENCE_PENALTY"
 
+class GitCommand(Enum):
+    UNSTAGED_FILES = ["git", "ls-files", "--others", "--exclude-standard"]
+    MODIFIED_FILES = ["git", "diff", "--name-only"]
 
 class ACW:
     def __init__(self, check_subcommands=True, home_directory=None) -> None:
@@ -28,6 +32,7 @@ class ACW:
         """
         self.text_color = "light_slate_blue"
         self.home_directory = os.path.expanduser("~")
+        self.acw_config_path = self.home_directory + "/.acw"
         if home_directory:
             self.home_directory = home_directory
         self.commit_message_language = "English"
@@ -63,17 +68,16 @@ class ACW:
                 self.commit()
 
     def config(self, edit_config=False):
-        acw_config_path = self.home_directory + "/.acw"
         exist = (
-            os.path.exists(acw_config_path)
-            and os.path.isfile(acw_config_path)
-            and os.access(acw_config_path, os.R_OK)
-            and os.path.getsize(acw_config_path) > 0
+            os.path.exists(self.acw_config_path)
+            and os.path.isfile(self.acw_config_path)
+            and os.access(self.acw_config_path, os.R_OK)
+            and os.path.getsize(self.acw_config_path) > 0
         )
         if exist:
             if edit_config:
                 current_config_map = {}
-                with open(acw_config_path, "rb") as f:
+                with open(self.acw_config_path, "rb") as f:
                     for line in f:
                         line = line.strip()
                         if line:
@@ -87,7 +91,7 @@ class ACW:
                     if new_value:
                         current_config_map[k] = new_value
                     print()
-                with open(acw_config_path, "wb") as f:
+                with open(self.acw_config_path, "wb") as f:
                     for k, v in current_config_map.items():
                         f.write(k.encode("utf-8"))
                         f.write(b"=")
@@ -107,7 +111,7 @@ class ACW:
                 Constants.OPEN_AI_FREQUENCY_PENALTY.name: self.open_ai_frequency_penalty,
                 Constants.OPEN_AI_PRESENCE_PENALTY.name: self.open_ai_presence_penalty,
             }
-            with open(acw_config_path, "wb") as f:
+            with open(self.acw_config_path, "wb") as f:
                 for k, v in config_map.items():
                     f.write(k.encode("utf-8"))
                     f.write(b"=")
@@ -116,19 +120,16 @@ class ACW:
 
     def commit(self):
         self.config()
-
-        acw_config_path = self.home_directory + "/.acw"
         try:
-            with open(acw_config_path, 'r') as file:
+            with open(self.acw_config_path, "r") as file:
                 file_contents = file.read()
                 api_key = file_contents.split("\n")[0].split("=")[1]
         except FileNotFoundError:
-            print(f"The file {acw_config_path} was not found.")
+            print(f"The file {self.acw_config_path} was not found.")
 
         self.client = OpenAI(
-                    # This is the default and can be omitted
-                    api_key=api_key,
-                )
+            api_key=api_key
+        )
 
         selected_unstaged_file_name_list = self.get_selected_unstaged_file_name_list()
         selected_modified_file_name_list = self.get_selected_modified_file_name_list()
@@ -157,7 +158,7 @@ class ACW:
         self.git_push_if_needed()
 
     def get_selected_unstaged_file_name_list(self) -> list:
-        unstaged_file_name_list = self.get_all_unstaged_file_name_list()
+        unstaged_file_name_list = self.get_file_list_from_git_command(git_command=GitCommand.UNSTAGED_FILES)
 
         if unstaged_file_name_list:
             return self.select_checkbox(
@@ -167,7 +168,7 @@ class ACW:
             return []
 
     def get_selected_modified_file_name_list(self) -> list:
-        modified_file_name_list = self.get_all_modified_file_name_list()
+        modified_file_name_list = self.get_file_list_from_git_command(git_command=GitCommand.MODIFIED_FILES)
 
         if modified_file_name_list:
             return self.select_checkbox(
@@ -175,39 +176,20 @@ class ACW:
             )
         else:
             return []
-
-    def get_all_unstaged_file_name_list(self) -> list:
+        
+    def get_file_list_from_git_command(self, git_command: GitCommand):
         """
-        Retrieve a list of all unstaged file names in the current git repository.
-        """
-        try:
-            output = subprocess.check_output(
-                ["git", "ls-files", "--others", "--exclude-standard"],
-                stderr=subprocess.STDOUT,  # Capture stderr in case of errors
-                text=True  # Automatically decode output to string
-            ).strip()  # Remove leading/trailing whitespace characters
-            if output:  # If there's any output, split it into a list
-                return output.split('\n')
-            else:
-                return []  # Return an empty list if there's no output
-        except subprocess.CalledProcessError as e:
-            # Handle errors (e.g., not a git repo, git command not found)
-            print(f"Error executing git command: {e.output}")
-            return []
-
-    def get_all_modified_file_name_list(self) -> list:
-        """
-        Retrieves a list of all file names that have been modified in the current
-        Git working directory but not yet staged for commit.
+        Executes a Git command based on the GitCommand enum, returning a list of file names or an empty list on error.
+        Handles execution errors by printing the error message and returning an empty list.
         """
         try:
             output = subprocess.check_output(
-                ["git", "diff", "--name-only"],
+                git_command.value,
                 stderr=subprocess.STDOUT,  # Capture stderr in case of errors
-                text=True  # Automatically decode output to string
+                text=True,  # Automatically decode output to string
             ).strip()  # Remove leading/trailing whitespace characters
             if output:  # If there's any output, split it into a list
-                return output.split('\n')
+                return output.split("\n")
             else:
                 return []  # Return an empty list if there's no output
         except subprocess.CalledProcessError as e:
@@ -277,11 +259,7 @@ class ACW:
             messages=[
                 {
                     "role": "system",
-                    "content": """
-                    You will be provided with a piece of code,
-                    and your task is to generate commit message for it in a conventional commit message.
-                    Commit Subject and Body are up to  70 charactors.
-                    """,
+                    "content": self.open_ai_prompt_message,
                 },
                 {"role": "user", "content": parsed_diff_line},
             ],
@@ -337,12 +315,12 @@ class ACW:
         space = " " * indent
         if not width:
             width = max(map(len, lines))
-        box = f'╔{"═" * (width + indent * 2)}╗\n'  # upper_border
+        box = f'{"═" * (width + indent * 2)}\n'  # upper_border
         if title:
             box += f"║{space}{title:<{width}}{space}║\n"  # title
             box += f'║{space}{"-" * len(title):<{width}}{space}║\n'  # underscore
-        box += "".join([f"║{space}{line:<{width}}{space}║\n" for line in lines])
-        box += f'╚{"═" * (width + indent * 2)}╝'  # lower_border
+        box += "".join([f"{space}{line:<{width}}{space}\n" for line in lines])
+        box += f'{"═" * (width + indent * 2)}'  # lower_border
         print(box)
 
     def git_add_files(self, file_name_list):
@@ -391,7 +369,7 @@ class ACW:
     
 
 if __name__ == "__main__":
-    # try:
+    try:
         ACW()
-    # except:
-        # pass
+    except:
+        pass
