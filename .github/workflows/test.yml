@@ -25,4 +25,4 @@ jobs:
       - name: Install dependencies
         run: poetry install
       - name: Test with unittest
-        run: python -m unittest
+        run: poetry run python -m unittest
