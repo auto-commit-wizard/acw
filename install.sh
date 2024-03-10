@@ -23,6 +23,9 @@ poetry add pyinstaller
 # Python 스크립트를 실행 파일로 변환
 poetry run pyinstaller --onefile acw.py
 
+# `No such file or directory` 대응
+sudo mkdir -p -m 775 /usr/local/bin
+
 # 실행 파일을 원하는 위치로 이동
 sudo cp ./dist/acw /usr/local/bin/acw
 
