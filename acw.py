@@ -35,9 +35,9 @@ class ACW:
         """
         self.text_color = "light_slate_blue"
         self.home_directory = os.path.expanduser("~")
-        self.acw_config_path = self.home_directory + "/.acw"
         if home_directory:
             self.home_directory = home_directory
+        self.acw_config_path = self.home_directory + "/.acw"
         self.commit_message_language = "English"
         self.open_ai_prompt_message = "You will be provided with a piece of code, and your task is to generate a commit message for it in a conventional commit message format. Commit Subject and Body are up to 70 charactors each lines. Commit Subject and Body should be in {0}.".format(
             self.commit_message_language
