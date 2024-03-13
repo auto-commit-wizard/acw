@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# ACW 설치 여부 확인
+if command -v acw &>/dev/null; then
+  echo "ACW가 이미 설치되어 있습니다. 재설치를 원하시는 경우 삭제 후 진행해주세요."
+  exit 0
+fi
+
 # Python 3.11 또는 3.12 버전이 설치되어 있는지 확인
 if command -v python3.11 &>/dev/null || command -v python3.12 &>/dev/null; then
   echo "Python 3.11 또는 3.12 버전이 설치되어 있습니다."
