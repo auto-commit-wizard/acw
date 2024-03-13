@@ -18,6 +18,29 @@ else
   exit 1
 fi
 
+# 설치 경로 설정
+BIN_PATH="/usr/local/bin"
+
+# /usr/local/bin 디렉토리가 없는지 확인
+if [ ! -d "$BIN_PATH" ]; then
+  read -p "/usr/local/bin 디렉토리가 존재하지 않습니다. 생성하시겠습니까? (Y/n): " -n 1 choice
+  choice=${choice:-Y} # 사용자가 아무 입력도 하지 않으면 기본값 "Y"로 설정
+  echo ""
+  case "$choice" in
+  y | Y)
+    sudo mkdir -p "$BIN_PATH"
+    ;;
+  *)
+    read -p "설치할 경로를 입력하세요: " custom_path
+    if [ ! -d "$custom_path" ]; then
+      echo "입력한 경로가 존재하지 않습니다. 스크립트를 종료합니다."
+      exit 1
+    fi
+    BIN_PATH="$custom_path"
+    ;;
+  esac
+fi
+
 # Poetry를 사용하여 프로젝트 의존성 설치
 poetry install
 
@@ -27,11 +50,8 @@ poetry add pyinstaller
 # Python 스크립트를 실행 파일로 변환
 poetry run pyinstaller --onefile acw.py
 
-# `No such file or directory` 대응
-sudo mkdir -p -m 775 /usr/local/bin
-
 # 실행 파일을 원하는 위치로 이동
-sudo cp ./dist/acw /usr/local/bin/acw
+sudo cp ./dist/acw $BIN_PATH/acw
 
 # build 폴더, dist 폴더, *.spec 파일 제거
 rm -rf build dist *.spec
