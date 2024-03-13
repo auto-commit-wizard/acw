@@ -7,17 +7,13 @@ if command -v acw &>/dev/null; then
 fi
 
 # Python 3.11 또는 3.12 버전이 설치되어 있는지 확인
-if command -v python3.11 &>/dev/null || command -v python3.12 &>/dev/null; then
-  echo "Python 3.11 또는 3.12 버전이 설치되어 있습니다."
-else
+if ! command -v python3.11 &>/dev/null && ! command -v python3.12 &>/dev/null; then
   echo "Python 3.11 또는 3.12 버전이 설치되어 있지 않습니다."
   exit 1
 fi
 
 # Poetry 설치 여부 확인
-if command -v poetry &>/dev/null; then
-  echo "Poetry가 이미 설치되어 있습니다."
-else
+if ! command -v poetry &>/dev/null; then
   echo "Poetry가 설치되어 있지 않습니다."
   echo "Poetry를 설치하려면 아래 링크를 참조하세요:"
   echo "https://python-poetry.org/docs/#installation"
