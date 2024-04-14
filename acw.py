@@ -8,8 +8,11 @@ import inquirer
 from openai import OpenAI
 from rich import print
 
+import ollama
+
 
 class Constants(Enum):
+    LANGUAGE_MODEL = "LANGUAGE_MODEL"
     COMMIT_MESSAGE_LANGUAGE = "COMMIT_MESSAGE_LANGUAGE"
     OPEN_AI_API_KEY = "OPEN_AI_API_KEY"
     OPEN_AI_PROMPT_MESSAGE = "OPEN_AI_PROMPT_MESSAGE"
@@ -26,6 +29,11 @@ class GitCommand(Enum):
     MODIFIED_FILES = ["git", "diff", "--name-only"]
 
 
+class LanguageModel(Enum):
+    OPENAI = "openai"
+    OLLAMA_LLAMA2 = "ollama.llama2"
+
+
 class ACW:
     def __init__(self, check_subcommands=True, home_directory=None) -> None:
         """
@@ -39,15 +47,9 @@ class ACW:
             self.home_directory = home_directory
         self.acw_config_path = self.home_directory + "/.acw"
         self.commit_message_language = "English"
-        self.open_ai_prompt_message = "You will be provided with a piece of code, and your task is to generate a commit message for it in a conventional commit message format. Commit Subject and Body are up to 70 charactors each lines. Commit Subject and Body should be in {0}.".format(
+        self.prompt_message = "You will be provided with a piece of code, and your task is to generate a commit message for it in a conventional commit message format. Commit Subject and Body are up to 70 charactors each lines. Commit Subject and Body should be in {0}.".format(
             self.commit_message_language
         )
-        self.open_ai_model = "gpt-3.5-turbo"
-        self.open_ai_temperature = 0
-        self.open_ai_top_p = 0.95
-        self.open_ai_max_tokens = 500
-        self.open_ai_frequency_penalty = 0
-        self.open_ai_presence_penalty = 0
 
         if check_subcommands:
             subcommands = sys.argv[1:]
@@ -68,6 +70,7 @@ class ACW:
                     sys.exit(1)
             else:
                 # 'acw' 만 입력한 경우
+                self.config()
                 self.commit()
 
     def config(self, edit_config=False):
@@ -77,7 +80,15 @@ class ACW:
             and os.access(self.acw_config_path, os.R_OK)
             and os.path.getsize(self.acw_config_path) > 0
         )
+
         if exist:
+            try:
+                with open(self.acw_config_path, "r") as file:
+                    file_contents = file.read()
+                    self.language_model = file_contents.split("\n")[0].split("=")[1]
+            except FileNotFoundError:
+                print(f"The file {self.acw_config_path} was not found.")
+
             if edit_config:
                 current_config_map = {}
                 with open(self.acw_config_path, "rb") as f:
@@ -102,11 +113,48 @@ class ACW:
                         f.write(b"\n")
             return
         else:
+            # 언어 모델을 선택
+            key = "cofirm"
+            questions = [
+                inquirer.List(
+                    key,
+                    message="Select the language model you want to use.",
+                    choices=[
+                        "openai",
+                        "ollama.llama2 (Make sure you've installed ollama in advance.)",
+                    ],
+                )
+            ]
+            model_name = inquirer.prompt(questions)[key].split(" ")[0]
+
+            self.config_language_model(model_name)
+
+            return
+
+    def config_language_model(self, model_name):
+
+        if (
+            model_name != LanguageModel.OPENAI.value
+            and model_name != LanguageModel.OLLAMA_LLAMA2.value
+        ):
+            raise Exception("Unsupported Model.")
+
+        self.language_model = model_name
+        config_map = {Constants.LANGUAGE_MODEL.name: model_name}
+
+        if model_name == LanguageModel.OPENAI.value:
+            self.open_ai_model = "gpt-3.5-turbo"
+            self.open_ai_temperature = 0
+            self.open_ai_top_p = 0.95
+            self.open_ai_max_tokens = 500
+            self.open_ai_frequency_penalty = 0
+            self.open_ai_presence_penalty = 0
+
             open_ai_api_key = input("Enter your OpenAI API key: ")
-            config_map = {
+            config_map = config_map | {
                 Constants.OPEN_AI_API_KEY.name: open_ai_api_key,
                 Constants.COMMIT_MESSAGE_LANGUAGE.name: self.commit_message_language,
-                Constants.OPEN_AI_PROMPT_MESSAGE.name: self.open_ai_prompt_message,
+                Constants.OPEN_AI_PROMPT_MESSAGE.name: self.prompt_message,
                 Constants.OPEN_AI_MODEL.name: self.open_ai_model,
                 Constants.OPEN_AI_TEMPERATURE.name: self.open_ai_temperature,
                 Constants.OPEN_AI_TOP_P.name: self.open_ai_top_p,
@@ -114,23 +162,31 @@ class ACW:
                 Constants.OPEN_AI_FREQUENCY_PENALTY.name: self.open_ai_frequency_penalty,
                 Constants.OPEN_AI_PRESENCE_PENALTY.name: self.open_ai_presence_penalty,
             }
-            with open(self.acw_config_path, "wb") as f:
-                for k, v in config_map.items():
-                    f.write(k.encode("utf-8"))
-                    f.write(b"=")
-                    f.write(str(v).encode("utf-8"))
-                    f.write(b"\n")
+
+        with open(self.acw_config_path, "wb") as f:
+            for k, v in config_map.items():
+                print(k, v)
+                f.write(k.encode("utf-8"))
+                f.write(b"=")
+                f.write(str(v).encode("utf-8"))
+                f.write(b"\n")
+
+        return
 
     def commit(self):
-        self.config()
-        try:
-            with open(self.acw_config_path, "r") as file:
-                file_contents = file.read()
-                api_key = file_contents.split("\n")[0].split("=")[1]
-        except FileNotFoundError:
-            print(f"The file {self.acw_config_path} was not found.")
 
-        self.client = OpenAI(api_key=api_key)
+        if self.language_model == LanguageModel.OPENAI.value:
+            try:
+                with open(self.acw_config_path, "r") as file:
+                    file_contents = file.read()
+                    api_key = file_contents.split("\n")[1].split("=")[1]
+            except FileNotFoundError:
+                print(f"The file {self.acw_config_path} was not found.")
+            self.client = OpenAI(api_key=api_key)
+        elif self.language_model == LanguageModel.OLLAMA_LLAMA2.value:
+            self.client = ollama
+        else:
+            raise Exception("Unsupported Model.")
 
         selected_unstaged_file_name_list = self.get_selected_unstaged_file_name_list()
         selected_modified_file_name_list = self.get_selected_modified_file_name_list()
@@ -260,23 +316,38 @@ class ACW:
         """
         Automatically generate and suggest commit messages through prompt engineering
         """
-        completion = self.client.chat.completions.create(
-            messages=[
-                {
-                    "role": "system",
-                    "content": self.open_ai_prompt_message,
-                },
-                {"role": "user", "content": parsed_diff_line},
-            ],
-            model=self.open_ai_model,
-            frequency_penalty=self.open_ai_frequency_penalty,
-            max_tokens=self.open_ai_max_tokens,
-            temperature=self.open_ai_temperature,
-            top_p=self.open_ai_top_p,
-            presence_penalty=self.open_ai_presence_penalty,
-            stop=None,
-        )
-        return completion.choices[0].message.content
+        if self.language_model == LanguageModel.OPENAI.value:
+            completion = self.client.chat.completions.create(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": self.prompt_message,
+                    },
+                    {"role": "user", "content": parsed_diff_line},
+                ],
+                model=self.open_ai_model,
+                frequency_penalty=self.open_ai_frequency_penalty,
+                max_tokens=self.open_ai_max_tokens,
+                temperature=self.open_ai_temperature,
+                top_p=self.open_ai_top_p,
+                presence_penalty=self.open_ai_presence_penalty,
+                stop=None,
+            )
+            return completion.choices[0].message.content
+        elif self.language_model == LanguageModel.OLLAMA_LLAMA2.value:
+            completion = self.client.chat(
+                model="llama2",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": self.prompt_message,
+                    },
+                    {"role": "user", "content": parsed_diff_line},
+                ],
+            )
+            return completion["message"]["content"]
+        else:
+            raise Exception("Unsupported Model.")
 
     def confirm_commit_message(self, genenrated_commit_message, diff_lines):
         """
