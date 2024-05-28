@@ -3,7 +3,7 @@ import unittest.mock
 from unittest import TestCase
 from unittest.mock import mock_open, patch
 
-from acw import ACW, Constants
+from acw import ACW, Constants, Models
 
 
 class ACWTest(TestCase):
@@ -32,7 +32,10 @@ class ACWTest(TestCase):
 
         # when
         with patch("builtins.input", return_value=dummy_open_ai_api_key):
-            acw.config()
+            with patch(
+                "inquirer.prompt", return_value={"confirm": Models.GPT_3_5_TURBO.name}
+            ):
+                acw.config()
 
         # then
         with open(self.get_mock_file_path(), "r") as f:
@@ -48,7 +51,10 @@ class ACWTest(TestCase):
         acw = ACW(check_subcommands=False, home_directory=home_directory)
         dummy_open_ai_api_key = "dummy_open_ai_api_key"
         with patch("builtins.input", return_value=dummy_open_ai_api_key):
-            acw.config()
+            with patch(
+                "inquirer.prompt", return_value={"confirm": Models.GPT_3_5_TURBO.name}
+            ):
+                acw.config()
 
         with open(self.get_mock_file_path(), "r") as f:
             config_map = self.parse_config_file_to_dict(f.read())
@@ -61,10 +67,10 @@ class ACWTest(TestCase):
         # when
         with patch("builtins.input") as mocked_input:
             mocked_input.side_effect = [
+                Models.GPT_3_5_TURBO.name,
+                None,
+                None,
                 updated_dummy_open_ai_api_key,
-                None,
-                None,
-                None,
                 None,
                 None,
                 None,
