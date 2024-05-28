@@ -15,6 +15,12 @@ cd acw
 poetry install
 ```
 
+### Run Tests
+
+```bash
+poetry run python -m unittest
+```
+
 ## TO-DO
 
 - [x] `acw config`
