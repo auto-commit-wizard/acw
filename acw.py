@@ -1,3 +1,4 @@
+import json
 import os
 import signal
 import subprocess
@@ -5,20 +6,26 @@ import sys
 from enum import Enum, auto
 
 import inquirer
+import ollama
 from openai import OpenAI
 from rich import print
 
 
 class Constants(Enum):
+    MODEL = "MODEL"
     COMMIT_MESSAGE_LANGUAGE = "COMMIT_MESSAGE_LANGUAGE"
+    PROMPT_MESSAGE = "PROMPT_MESSAGE"
     OPEN_AI_API_KEY = "OPEN_AI_API_KEY"
-    OPEN_AI_PROMPT_MESSAGE = "OPEN_AI_PROMPT_MESSAGE"
-    OPEN_AI_MODEL = "OPEN_AI_MODEL"
     OPEN_AI_TEMPERATURE = "OPEN_AI_TEMPERATURE"
     OPEN_AI_TOP_P = "OPEN_AI_TOP_P"
     OPEN_AI_MAX_TOKENS = "OPEN_AI_MAX_TOKENS"
     OPEN_AI_FREQUENCY_PENALTY = "OPEN_AI_FREQUENCY_PENALTY"
     OPEN_AI_PRESENCE_PENALTY = "OPEN_AI_PRESENCE_PENALTY"
+
+
+class Models(Enum):
+    GPT_3_5_TURBO = "gpt-3.5-turbo"
+    LLAMA3 = "llama3"
 
 
 class GitCommand(Enum):
@@ -39,10 +46,9 @@ class ACW:
             self.home_directory = home_directory
         self.acw_config_path = self.home_directory + "/.acw"
         self.commit_message_language = "English"
-        self.open_ai_prompt_message = "You will be provided with a piece of code, and your task is to generate a commit message for it in a conventional commit message format. Commit Subject and Body are up to 70 charactors each lines. Commit Subject and Body should be in {0}.".format(
+        self.prompt_message = "You will be provided with a piece of code, and your task is to generate a commit message for it in a conventional commit message format (e.g., feat: add new feature). Please respond in JSON format with the keys 'subject', 'body'. Subject and Body should be are up to 70 charactors each lines in {0}.".format(
             self.commit_message_language
         )
-        self.open_ai_model = "gpt-3.5-turbo"
         self.open_ai_temperature = 0
         self.open_ai_top_p = 0.95
         self.open_ai_max_tokens = 500
@@ -78,42 +84,50 @@ class ACW:
             and os.path.getsize(self.acw_config_path) > 0
         )
         if exist:
+            self.current_config_map = {}
+            with open(self.acw_config_path, "rb") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        k, v = line.split(b"=")
+                        self.current_config_map[k.decode("utf-8")] = v.decode("utf-8")
             if edit_config:
-                current_config_map = {}
-                with open(self.acw_config_path, "rb") as f:
-                    for line in f:
-                        line = line.strip()
-                        if line:
-                            k, v = line.split(b"=")
-                            current_config_map[k.decode("utf-8")] = v.decode("utf-8")
-                for k, v in current_config_map.items():
+                for k, v in self.current_config_map.items():
                     print('Current value of "{0}": "{1}"'.format(k, v))
                     new_value = input(
                         "Enter a new value or press Enter to keep the current value: "
                     )
                     if new_value:
-                        current_config_map[k] = new_value
+                        self.current_config_map[k] = new_value
                     print()
                 with open(self.acw_config_path, "wb") as f:
-                    for k, v in current_config_map.items():
+                    for k, v in self.current_config_map.items():
                         f.write(k.encode("utf-8"))
                         f.write(b"=")
                         f.write(str(v).encode("utf-8"))
                         f.write(b"\n")
             return
         else:
-            open_ai_api_key = input("Enter your OpenAI API key: ")
+            self.model = self.choose_model()
             config_map = {
-                Constants.OPEN_AI_API_KEY.name: open_ai_api_key,
+                Constants.MODEL.name: self.model,
                 Constants.COMMIT_MESSAGE_LANGUAGE.name: self.commit_message_language,
-                Constants.OPEN_AI_PROMPT_MESSAGE.name: self.open_ai_prompt_message,
-                Constants.OPEN_AI_MODEL.name: self.open_ai_model,
-                Constants.OPEN_AI_TEMPERATURE.name: self.open_ai_temperature,
-                Constants.OPEN_AI_TOP_P.name: self.open_ai_top_p,
-                Constants.OPEN_AI_MAX_TOKENS.name: self.open_ai_max_tokens,
-                Constants.OPEN_AI_FREQUENCY_PENALTY.name: self.open_ai_frequency_penalty,
-                Constants.OPEN_AI_PRESENCE_PENALTY.name: self.open_ai_presence_penalty,
+                Constants.PROMPT_MESSAGE.name: self.prompt_message,
             }
+            if self.model == Models.GPT_3_5_TURBO.name:
+                open_ai_api_key = input("Enter your OpenAI API key: ")
+                config_map[Constants.OPEN_AI_API_KEY.name] = open_ai_api_key
+                config_map[Constants.OPEN_AI_TEMPERATURE.name] = (
+                    self.open_ai_temperature
+                )
+                config_map[Constants.OPEN_AI_TOP_P.name] = self.open_ai_top_p
+                config_map[Constants.OPEN_AI_MAX_TOKENS.name] = self.open_ai_max_tokens
+                config_map[Constants.OPEN_AI_FREQUENCY_PENALTY.name] = (
+                    self.open_ai_frequency_penalty
+                )
+                config_map[Constants.OPEN_AI_PRESENCE_PENALTY.name] = (
+                    self.open_ai_presence_penalty
+                )
             with open(self.acw_config_path, "wb") as f:
                 for k, v in config_map.items():
                     f.write(k.encode("utf-8"))
@@ -121,16 +135,33 @@ class ACW:
                     f.write(str(v).encode("utf-8"))
                     f.write(b"\n")
 
+    def choose_model(self):
+        key = "confirm"
+        questions = [
+            inquirer.List(
+                key,
+                message="Select the models you want to use.",
+                choices=[
+                    Models.GPT_3_5_TURBO.name
+                    + "---(OpenAI, Need to connect your OpenAI account.)",
+                    Models.LLAMA3.name + "---(Ollama, Run locally.)",
+                ],
+            )
+        ]
+        return inquirer.prompt(questions)[key].split("---")[0].lstrip()
+
+    def set_properties_from_current_config_map(self):
+        self.model = self.current_config_map[Constants.MODEL.name]
+
     def commit(self):
         self.config()
+        self.set_properties_from_current_config_map()
         try:
             with open(self.acw_config_path, "r") as file:
                 file_contents = file.read()
                 api_key = file_contents.split("\n")[0].split("=")[1]
         except FileNotFoundError:
             print(f"The file {self.acw_config_path} was not found.")
-
-        self.client = OpenAI(api_key=api_key)
 
         selected_unstaged_file_name_list = self.get_selected_unstaged_file_name_list()
         selected_modified_file_name_list = self.get_selected_modified_file_name_list()
@@ -143,8 +174,18 @@ class ACW:
 
         parsed_diff_line = self.parse_diff_lines_to_single_string(diff_lines)
 
-        generated_commit_message = self.generate_commit_message_using_prompt(
-            parsed_diff_line
+        generated_commit_message_as_json_string = (
+            self.generate_commit_message_using_prompt(parsed_diff_line)
+        )
+
+        generated_commit_message_json = json.loads(
+            generated_commit_message_as_json_string
+        )
+
+        generated_commit_message = (
+            generated_commit_message_json["subject"]
+            + "\n\n"
+            + generated_commit_message_json["body"]
         )
 
         final_commit_message = self.confirm_commit_message(
@@ -260,23 +301,37 @@ class ACW:
         """
         Automatically generate and suggest commit messages through prompt engineering
         """
-        completion = self.client.chat.completions.create(
-            messages=[
-                {
-                    "role": "system",
-                    "content": self.open_ai_prompt_message,
-                },
-                {"role": "user", "content": parsed_diff_line},
-            ],
-            model=self.open_ai_model,
-            frequency_penalty=self.open_ai_frequency_penalty,
-            max_tokens=self.open_ai_max_tokens,
-            temperature=self.open_ai_temperature,
-            top_p=self.open_ai_top_p,
-            presence_penalty=self.open_ai_presence_penalty,
-            stop=None,
-        )
-        return completion.choices[0].message.content
+        if self.model == Models.GPT_3_5_TURBO.name:
+            completion = OpenAI(api_key=api_key).chat.completions.create(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": self.prompt_message,
+                    },
+                    {"role": "user", "content": parsed_diff_line},
+                ],
+                model=self.open_ai_model,
+                frequency_penalty=self.open_ai_frequency_penalty,
+                max_tokens=self.open_ai_max_tokens,
+                temperature=self.open_ai_temperature,
+                top_p=self.open_ai_top_p,
+                presence_penalty=self.open_ai_presence_penalty,
+                stop=None,
+            )
+            return completion.choices[0].message.content
+        if self.model == Models.LLAMA3.name:
+            completion = ollama.chat(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": self.prompt_message,
+                    },
+                    {"role": "user", "content": parsed_diff_line},
+                ],
+            )
+            return completion["message"]["content"]
+        raise Exception("Unsupported Model: " + self.model)
 
     def confirm_commit_message(self, genenrated_commit_message, diff_lines):
         """
