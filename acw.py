@@ -1,3 +1,4 @@
+import json
 import os
 import signal
 import subprocess
@@ -45,7 +46,7 @@ class ACW:
             self.home_directory = home_directory
         self.acw_config_path = self.home_directory + "/.acw"
         self.commit_message_language = "English"
-        self.prompt_message = "You will be provided with a piece of code, and your task is to generate a commit message for it in a conventional commit message format. Commit Subject and Body are up to 70 charactors each lines. Commit Subject and Body should be in {0}.".format(
+        self.prompt_message = "You will be provided with a piece of code, and your task is to generate a commit message for it in a conventional commit message format (e.g., feat: add new feature). Please respond in JSON format with the keys 'subject', 'body'. Subject and Body should be are up to 70 charactors each lines in {0}.".format(
             self.commit_message_language
         )
         self.open_ai_temperature = 0
@@ -173,8 +174,18 @@ class ACW:
 
         parsed_diff_line = self.parse_diff_lines_to_single_string(diff_lines)
 
-        generated_commit_message = self.generate_commit_message_using_prompt(
-            parsed_diff_line
+        generated_commit_message_as_json_string = (
+            self.generate_commit_message_using_prompt(parsed_diff_line)
+        )
+
+        generated_commit_message_json = json.loads(
+            generated_commit_message_as_json_string
+        )
+
+        generated_commit_message = (
+            generated_commit_message_json["subject"]
+            + "\n\n"
+            + generated_commit_message_json["body"]
         )
 
         final_commit_message = self.confirm_commit_message(
