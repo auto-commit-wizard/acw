@@ -46,8 +46,20 @@ class ACW:
             self.home_directory = home_directory
         self.acw_config_path = self.home_directory + "/.acw"
         self.commit_message_language = "English"
-        self.prompt_message = "You will be provided with a piece of code, and your task is to generate a commit message for it in a conventional commit message format (e.g., feat: add new feature). Please respond in JSON format with the keys 'subject', 'body'. Subject and Body should be are up to 70 charactors each lines in {0}.".format(
-            self.commit_message_language
+        self.prompt_message = (
+            "You are a robot that only outputs JSON."
+            " "
+            "You will be provided with a piece of code."
+            " "
+            "Your task is to generate a commit message for it in a conventional commit message format."
+            " "
+            f"Use {self.commit_message_language} as the commit message language."
+            " "
+            "Subject should be like 'feat: add new feature'"
+            " "
+            "The description should be summarized as a maximum of 70 characters per row and a maximum of 5 lines."
+            " "
+            "Return as a JSON object with the keys 'subject' and 'description' (e.g., {'subject': '...', 'description': ['...', '...']})."
         )
         self.open_ai_temperature = 0
         self.open_ai_top_p = 0.95
@@ -152,6 +164,18 @@ class ACW:
 
     def set_properties_from_current_config_map(self):
         self.model = self.current_config_map[Constants.MODEL.name]
+        current_config_map_commit_message_language = self.current_config_map.get(
+            Constants.COMMIT_MESSAGE_LANGUAGE.name, ""
+        )
+        current_config_map_prompt_message = self.current_config_map.get(
+            Constants.PROMPT_MESSAGE.name, ""
+        )
+        if (
+            len(current_config_map_commit_message_language) > 0
+            and len(current_config_map_prompt_message) > 0
+        ):
+            self.commit_message_language = current_config_map_commit_message_language
+            self.prompt_message = current_config_map_prompt_message
 
     def commit(self):
         self.config()
@@ -185,7 +209,9 @@ class ACW:
         generated_commit_message = (
             generated_commit_message_json["subject"]
             + "\n\n"
-            + generated_commit_message_json["body"]
+            + "\n".join(
+                map(lambda x: f"- {x}", generated_commit_message_json["description"])
+            )
         )
 
         final_commit_message = self.confirm_commit_message(
