@@ -10,27 +10,10 @@ import ollama
 from openai import OpenAI
 from rich import print
 
-
-class Constants(Enum):
-    MODEL = "MODEL"
-    COMMIT_MESSAGE_LANGUAGE = "COMMIT_MESSAGE_LANGUAGE"
-    PROMPT_MESSAGE = "PROMPT_MESSAGE"
-    OPEN_AI_API_KEY = "OPEN_AI_API_KEY"
-    OPEN_AI_TEMPERATURE = "OPEN_AI_TEMPERATURE"
-    OPEN_AI_TOP_P = "OPEN_AI_TOP_P"
-    OPEN_AI_MAX_TOKENS = "OPEN_AI_MAX_TOKENS"
-    OPEN_AI_FREQUENCY_PENALTY = "OPEN_AI_FREQUENCY_PENALTY"
-    OPEN_AI_PRESENCE_PENALTY = "OPEN_AI_PRESENCE_PENALTY"
-
-
-class Models(Enum):
-    GPT_3_5_TURBO = "gpt-3.5-turbo"
-    LLAMA3 = "llama3"
-
-
-class GitCommand(Enum):
-    UNSTAGED_FILES = ["git", "ls-files", "--others", "--exclude-standard"]
-    MODIFIED_FILES = ["git", "diff", "--name-only"]
+from acw_helper import ACW_Helper
+from constants import Constants
+from git_command import GitCommand
+from models import Models
 
 
 class ACW:
@@ -120,7 +103,7 @@ class ACW:
                         f.write(b"\n")
             return
         else:
-            self.model = self.choose_model()
+            self.model = ACW_Helper.choose_model()
             config_map = {
                 Constants.MODEL.name: self.model,
                 Constants.COMMIT_MESSAGE_LANGUAGE.name: self.commit_message_language,
@@ -146,21 +129,6 @@ class ACW:
                     f.write(b"=")
                     f.write(str(v).encode("utf-8"))
                     f.write(b"\n")
-
-    def choose_model(self):
-        key = "confirm"
-        questions = [
-            inquirer.List(
-                key,
-                message="Select the models you want to use.",
-                choices=[
-                    Models.GPT_3_5_TURBO.name
-                    + "---(OpenAI, Need to connect your OpenAI account.)",
-                    Models.LLAMA3.name + "---(Ollama, Run locally.)",
-                ],
-            )
-        ]
-        return inquirer.prompt(questions)[key].split("---")[0].lstrip()
 
     def set_properties_from_current_config_map(self):
         self.model = self.current_config_map[Constants.MODEL.name]
@@ -190,9 +158,9 @@ class ACW:
         selected_unstaged_file_name_list = self.get_selected_unstaged_file_name_list()
         selected_modified_file_name_list = self.get_selected_modified_file_name_list()
 
-        diff_lines = self.read_file_diff(
+        diff_lines = ACW_Helper.read_file_diff(
             selected_unstaged_file_name_list, False
-        ) + self.read_file_diff(selected_modified_file_name_list, True)
+        ) + ACW_Helper.read_file_diff(selected_modified_file_name_list, True)
 
         self.validate_diff_lines(diff_lines)
 
@@ -226,7 +194,7 @@ class ACW:
         self.git_push_if_needed()
 
     def get_selected_unstaged_file_name_list(self) -> list:
-        unstaged_file_name_list = self.get_file_list_from_git_command(
+        unstaged_file_name_list = ACW_Helper.get_file_list_from_git_command(
             git_command=GitCommand.UNSTAGED_FILES
         )
 
@@ -238,7 +206,7 @@ class ACW:
             return []
 
     def get_selected_modified_file_name_list(self) -> list:
-        modified_file_name_list = self.get_file_list_from_git_command(
+        modified_file_name_list = ACW_Helper.get_file_list_from_git_command(
             git_command=GitCommand.MODIFIED_FILES
         )
 
@@ -247,26 +215,6 @@ class ACW:
                 "Select from [Changes not staged for commit]", modified_file_name_list
             )
         else:
-            return []
-
-    def get_file_list_from_git_command(self, git_command: GitCommand):
-        """
-        Executes a Git command based on the GitCommand enum, returning a list of file names or an empty list on error.
-        Handles execution errors by printing the error message and returning an empty list.
-        """
-        try:
-            output = subprocess.check_output(
-                git_command.value,
-                stderr=subprocess.STDOUT,  # Capture stderr in case of errors
-                text=True,  # Automatically decode output to string
-            ).strip()  # Remove leading/trailing whitespace characters
-            if output:  # If there's any output, split it into a list
-                return output.split("\n")
-            else:
-                return []  # Return an empty list if there's no output
-        except subprocess.CalledProcessError as e:
-            # Handle errors (e.g., not a git repo, git command not found)
-            print(f"Error executing git command: {e.output}")
             return []
 
     def select_checkbox(self, message, file_name_list):
@@ -283,34 +231,6 @@ class ACW:
         ]
         answers = inquirer.prompt(questions)
         return answers[key]
-
-    def read_file_diff(self, selected_files, is_diff):
-        """
-        Reads and returns the contents of selected files or their diffs if specified.
-        """
-        result = []
-        if is_diff:
-            for filename in selected_files:
-                try:
-                    output = subprocess.check_output(
-                        ["git", "diff", "--", filename],
-                        stderr=subprocess.STDOUT,  # Capture stderr in case of errors
-                        text=True,  # Automatically decode output to string
-                    ).strip()  # Remove leading/trailing whitespace characters
-                    if output:  # If there's any output, split it into a list
-                        result += output.split("\n")[:-1]
-                    else:
-                        continue
-                except subprocess.CalledProcessError as e:
-                    # Handle errors (e.g., not a git repo, git command not found)
-                    print(f"Error executing git command: {e.output}")
-                    return
-        else:
-            for filename in selected_files:
-                with open(filename, "r") as file:
-                    raw_data = file.read()
-                    result += [raw_data]
-        return result
 
     def validate_diff_lines(self, diff_lines):
         try:
