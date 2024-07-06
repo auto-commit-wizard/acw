@@ -11,16 +11,8 @@ from openai import OpenAI
 from rich import print
 
 from constants import Constants
-
-
-class Models(Enum):
-    GPT_3_5_TURBO = "gpt-3.5-turbo"
-    LLAMA3 = "llama3"
-
-
-class GitCommand(Enum):
-    UNSTAGED_FILES = ["git", "ls-files", "--others", "--exclude-standard"]
-    MODIFIED_FILES = ["git", "diff", "--name-only"]
+from models import Models
+from git_command import GitCommand
 
 
 class ACW:
