@@ -1,9 +1,28 @@
 import subprocess
 
+import inquirer
+
 from git_command import GitCommand
+from models import Models
 
 
 class ACW_Helper(object):
+    @staticmethod
+    def choose_model():
+        key = "confirm"
+        questions = [
+            inquirer.List(
+                key,
+                message="Select the models you want to use.",
+                choices=[
+                    Models.GPT_3_5_TURBO.name
+                    + "---(OpenAI, Need to connect your OpenAI account.)",
+                    Models.LLAMA3.name + "---(Ollama, Run locally.)",
+                ],
+            )
+        ]
+        return inquirer.prompt(questions)[key].split("---")[0].lstrip()
+
     @staticmethod
     def get_file_list_from_git_command(git_command: GitCommand):
         """

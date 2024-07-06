@@ -103,7 +103,7 @@ class ACW:
                         f.write(b"\n")
             return
         else:
-            self.model = self.choose_model()
+            self.model = ACW_Helper.choose_model()
             config_map = {
                 Constants.MODEL.name: self.model,
                 Constants.COMMIT_MESSAGE_LANGUAGE.name: self.commit_message_language,
@@ -129,21 +129,6 @@ class ACW:
                     f.write(b"=")
                     f.write(str(v).encode("utf-8"))
                     f.write(b"\n")
-
-    def choose_model(self):
-        key = "confirm"
-        questions = [
-            inquirer.List(
-                key,
-                message="Select the models you want to use.",
-                choices=[
-                    Models.GPT_3_5_TURBO.name
-                    + "---(OpenAI, Need to connect your OpenAI account.)",
-                    Models.LLAMA3.name + "---(Ollama, Run locally.)",
-                ],
-            )
-        ]
-        return inquirer.prompt(questions)[key].split("---")[0].lstrip()
 
     def set_properties_from_current_config_map(self):
         self.model = self.current_config_map[Constants.MODEL.name]
