@@ -10,17 +10,7 @@ import ollama
 from openai import OpenAI
 from rich import print
 
-
-class Constants(Enum):
-    MODEL = "MODEL"
-    COMMIT_MESSAGE_LANGUAGE = "COMMIT_MESSAGE_LANGUAGE"
-    PROMPT_MESSAGE = "PROMPT_MESSAGE"
-    OPEN_AI_API_KEY = "OPEN_AI_API_KEY"
-    OPEN_AI_TEMPERATURE = "OPEN_AI_TEMPERATURE"
-    OPEN_AI_TOP_P = "OPEN_AI_TOP_P"
-    OPEN_AI_MAX_TOKENS = "OPEN_AI_MAX_TOKENS"
-    OPEN_AI_FREQUENCY_PENALTY = "OPEN_AI_FREQUENCY_PENALTY"
-    OPEN_AI_PRESENCE_PENALTY = "OPEN_AI_PRESENCE_PENALTY"
+from constants import Constants
 
 
 class Models(Enum):
