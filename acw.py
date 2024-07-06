@@ -152,10 +152,15 @@ class ACW:
 
     def set_properties_from_current_config_map(self):
         self.model = self.current_config_map[Constants.MODEL.name]
+        self.commit_message_language = self.current_config_map[
+            Constants.COMMIT_MESSAGE_LANGUAGE.name
+        ]
+        self.prompt_message = self.current_config_map[Constants.PROMPT_MESSAGE.name]
 
     def commit(self):
         self.config()
         self.set_properties_from_current_config_map()
+        print(self.prompt_message)
         try:
             with open(self.acw_config_path, "r") as file:
                 file_contents = file.read()
