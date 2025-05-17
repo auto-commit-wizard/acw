@@ -4,21 +4,21 @@
 
 ### Prerequisites
 
-- Above `Python 3.12`
-- [Poetry](https://python-poetry.org/)
+- requires-python (`>=3.11`)
+- [uv](https://github.com/astral-sh/uv)
 
 ### Script
 
 ```bash
 git clone https://github.com/auto-commit-wizard/acw.git
 cd acw
-poetry install
+uv install
 ```
 
 ### Run Tests
 
 ```bash
-poetry run python -m unittest
+uv run python -m unittest
 ```
 
 ## TO-DO

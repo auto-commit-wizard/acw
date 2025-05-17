@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.11', '3.12']
+        python-version: ['3.11', '3.12', '3.13']
 
     steps:
       - uses: actions/checkout@v4
@@ -20,9 +20,9 @@ jobs:
         run: |
           pip install --user pipx
           pipx ensurepath
-      - name: Install poetry
-        run: pipx install poetry
+      - name: Install uv
+        run: pipx install uv
       - name: Install dependencies
-        run: poetry install
+        run: uv sync
       - name: Test with unittest
-        run: poetry run python -m unittest
+        run: uv run python -m unittest

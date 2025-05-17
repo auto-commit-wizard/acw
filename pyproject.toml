@@ -1,18 +1,21 @@
-[tool.poetry]
+[project]
 name = "acw"
 version = "0.0.1"
 description = ""
-authors = ["bossm0n5t3r <bossm0n5t3r@gmail.com>", "Woozzang <woozzaang@gmail.com>"]
+authors = [
+    { name = "bossm0n5t3r", email = "bossm0n5t3r@gmail.com" },
+    { name = "Woozzang", email = "woozzaang@gmail.com" },
+]
+requires-python = ">=3.11"
 readme = "README.md"
-
-[tool.poetry.dependencies]
-python = ">=3.11, <3.13"
-pyinstaller = "^6.4.0"
-inquirer = "^3.2.4"
-rich = "^13.7.1"
-openai = "^1.13.3"
-ollama = "0.1.8"
+dependencies = [
+    "pyinstaller>=6.13.0",
+    "inquirer>=3.4.0",
+    "rich>=14.0.0",
+    "openai>=1.75.0",
+    "ollama>=0.4.8",
+]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
